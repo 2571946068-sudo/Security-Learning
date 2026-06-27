@@ -1,0 +1,74 @@
+XOR加密逆向分析实战
+
+题目信息
+平台：攻防世界
+题目类型：加密货币
+涉及技术：xor加密、伪随机数、暴力枚举
+
+题目描述
+题目给了一段python加密脚本，逻辑如下：
+1.在明文flag前后填充了200-300个随机字符
+2.用伪随机数生成器，基于参数“r”(2-250)和初始密钥“k”（1-255）生成密钥流
+3.对明文各字节进行xor加密，再用Base64编码，最终输出密文
+
+已知
+flag格式为“hsctf{}”以及加密后的密文
+
+解题思路
+由于 `r` 和 `K` 的范围有限（249 × 255 ≈ 63,495种组合），可以采用“暴力枚举”的方式：
+1. 遍历所有可能的r和K
+2. 对每组参数，模拟加密过程生成密钥流
+3. 用密钥流与密文进行XOR解密
+4. 检查解密结果是否包含 `hsctf{`（flag的固定前缀)
+5. 一旦命中，即找到正确的参数组合，flag被成功还原
+
+核心代码
+import random
+import base64
+
+def f(x):
+    """与加密代码相同的f(x)函数"""
+    random.seed(x)
+    return random.getrandbits(8)
+
+# 预计算f(x)的值（x为8位，0-255）
+f_values = [f(x) for x in range(256)]
+
+# 解码密文
+ciphertext = b'8OcTbAfL6/kOMQnC9v8SNmmSzvQMeGTT8vANM1T+7vIce2fo0fc2RnScrNxTSmeSyuMjMF//w8BWaXX91dsGcnvmreg0NQTw96ceVVXj3sQ3Znn51OU1S0bOyaMtNHTj36AcWFqewN4zRUXD6agGbAPE+tQtd3XG0doAa1Ll9fhcQ1zk0McTM1bv8PIQOAnn3vQ3UgLD3PsONXLs4KkXMnjTyMEQOFn/0uYVUwOY1PsleEHCyNopRVDr+Kc0e2PH9v0XNXfprfIPU3nw7KYTNX/G7twLSkHoyaUlQHXi3v02UHmdy/4iNgme3Pc8bgPp+tYWV1+YzPkXYkXM4ulUc27DrM4SNUPT2fQlckj1qP4Fal+YoPYJMlyZ8qhXfF3Y0tUDdUXl3vg0dFTi++VVOFfH/dgMS1ru9N8WU0HF9cUCTgPe+qVdSn/u7Mkda0GTw/QDcWPZ9KYGN2jSzfk0OVrMzt0yRHD64KMrUgPF2sFWcmP56KZSTAD61PUGeXrd49MgU1bL8OsVNWj91vIsalXwqf0qaWbwzv0lWETA4eElS3L99cYmU1nv9dRQTWbDyclScQTN6NIhV2j//+ZWbH7Z68kwM3Dy4dcUc1PQy8kRTl/4zcU9WGWfoakOMXuf69MXZQTEz+kJT1Dar8UN'
+ct = base64.b64decode(ciphertext)
+
+# 暴力破解r和K
+print("开始破解...")
+for r in range(2, 251):  # r的范围：2-250
+    for K in range(1, 256):  # K的范围：1-255（因断言key != 0）
+        current_key = K
+        keystream = []
+        # 生成与密文等长的密钥流
+        for _ in range(len(ct)):
+            next_key = f_values[current_key]  # 使用预计算的值
+            tmp = (next_key * r) % 251  # 计算XOR密钥
+            keystream.append(tmp)
+            current_key = next_key  # 更新密钥
+        # 执行XOR解密
+        plaintext = bytes([c ^ k for c, k in zip(ct, keystream)])
+        # 检查是否包含flag前缀
+        if b'hsctf{' in plaintext:
+            print(f"找到 r={r}, K={K}")
+            print(f"解密结果: {plaintext}")
+            # 提取并输出flag
+            start = plaintext.find(b'hsctf{')
+            end = plaintext.find(b'}', start)
+            if end != -1:
+                flag = plaintext[start:end + 1]
+                print(f"Flag: {flag.decode()}")
+            exit()  # 找到后退出
+print("破解完成，未找到flag")
+运行后获得flag为：hsctf{x0r_i5_v4ry@eAsy_1oakn29gm3m3k93}
+
+反思与总结
+这道题是我第一次独立完成的XOR逆向分析。通过这次实战，我掌握了：
+如何从加密脚本中提取关键参数（r, K）
+如何用暴力枚举的方式还原密钥流
+如何用XOR特性还原明文
+这也让我认识到：伪随机数如果没有足够大的种子空间，在已知明文特征的情况下是可以被破解的
