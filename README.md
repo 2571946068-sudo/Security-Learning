@@ -4,3 +4,7 @@ CTF靶场解题思路（Writeup）
 常见漏洞（SQL注入/XSS/文件上传）复现步骤
 渗透测试工具使用心得
 持续更新中... 🚀
+
+已完成的题目笔记
+🐾[XOR加密逆向分析](./writeups/xor_encryption_crack.md) 
+🐾[替换密码解题记录](./writeups/substitution_cipher.md) 
